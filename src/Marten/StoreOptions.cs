@@ -131,6 +131,8 @@ namespace Marten
 
         public ITransforms Transforms { get; }
 
+        public bool UseEquatableCompiledQueries { get; set; }
+
         /// <summary>
         ///     Allows you to modify how the DDL for document tables and upsert functions is
         ///     written
@@ -423,18 +425,24 @@ namespace Marten
             }
         }
 
-        private ImHashMap<Type, ICompiledQuerySource> _querySources = ImHashMap<Type, ICompiledQuerySource>.Empty;
+
+        
+        private ImHashMap<CompiledQueryKey, ICompiledQuerySource> _querySources = ImHashMap<CompiledQueryKey, ICompiledQuerySource>.Empty;
 
         internal ICompiledQuerySource GetCompiledQuerySourceFor<TDoc, TOut>(ICompiledQuery<TDoc,TOut> query, IMartenSession session)
         {
-            if (_querySources.TryFind(query.GetType(), out var source))
+            var querySourceKey = UseEquatableCompiledQueries
+                ? CompiledQueryKey.ForEquatable(query)
+                : CompiledQueryKey.ByType(query);
+
+            if (_querySources.TryFind(querySourceKey, out var source))
             {
                 return source;
             }
 
             var plan = QueryCompiler.BuildPlan(session, query, this);
             source = new CompiledQuerySourceBuilder(plan, this).Build();
-            _querySources = _querySources.AddOrUpdate(query.GetType(), source);
+            _querySources = _querySources.AddOrUpdate(querySourceKey, source);
 
             return source;
         }

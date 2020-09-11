@@ -58,6 +58,32 @@ namespace Marten.Testing.Linq.Compiled
             differentUser.UserName.ShouldBe("jdm");
         }
 
+
+
+        [Fact]
+        public void creates_same_plan_for_equal_queries()
+        {
+            StoreOptions(x => x.UseEquatableCompiledQueries = true);
+            var query1 = new EquatableUserByUsername { UserName = "hank" };
+            var query2 = new EquatableUserByUsername { UserName = "myusername"};
+            
+            var plan1 = theStore.Diagnostics.ExplainPlan(query1);
+            var plan2 = theStore.Diagnostics.ExplainPlan(query2);
+            plan1.Command.CommandText.ShouldBe(plan2.Command.CommandText);
+        }
+        
+        [Fact]
+        public void creates_different_plans_for_non_equal_queries()
+        {
+            StoreOptions(x => x.UseEquatableCompiledQueries = true);
+            var query1 = new EquatableUserByUsername { UserName = "hank" };
+            var query2 = new EquatableUserByUsername { UserName = null };
+
+            var plan1 = theStore.Diagnostics.ExplainPlan(query1);
+            var plan2 = theStore.Diagnostics.ExplainPlan(query2);
+            plan1.Command.CommandText.ShouldNotBe(plan2.Command.CommandText);
+        }
+
         [Fact]
         public void a_single_item_compiled_query_with_fields()
         {
@@ -289,6 +315,43 @@ namespace Marten.Testing.Linq.Compiled
         {
             return query => query
                 .FirstOrDefault(x => x.UserName == UserName);
+        }
+    }
+
+
+    public class EquatableUserByUsername: ICompiledQuery<User> , IEquatable<EquatableUserByUsername>
+    {
+        public string UserName { get; set; }
+
+        public Expression<Func<IMartenQueryable<User>, User>> QueryIs()
+        {
+            if (string.IsNullOrWhiteSpace(UserName))
+            {
+                return query => query.FirstOrDefault();
+            }
+
+            return query => query
+                .FirstOrDefault(x => x.UserName == UserName);
+        }
+
+        public bool Equals(EquatableUserByUsername other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return string.IsNullOrWhiteSpace(UserName) == string.IsNullOrWhiteSpace(other.UserName);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((EquatableUserByUsername) obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return string.IsNullOrWhiteSpace(UserName).GetHashCode();
         }
     }
 

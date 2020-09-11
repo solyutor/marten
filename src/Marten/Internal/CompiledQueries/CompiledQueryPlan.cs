@@ -189,10 +189,10 @@ namespace Marten.Internal.CompiledQueries
                 parameter.TryMatch(command, storeOptions);
             }
 
-            var missing = Parameters.Where(x => x.ParameterIndex < 0);
-            if (missing.Any())
+            var removeList =  Parameters.Where(x => x.ParameterIndex < 0).ToList();
+            foreach (var queryMember in removeList)
             {
-                throw new  InvalidCompiledQueryException($"Unable to match compiled query member(s) {missing.Select(x => x.Member.Name).Join(", ")} with a command parameter");
+                Parameters.Remove(queryMember);
             }
         }
     }
